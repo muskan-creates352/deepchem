@@ -1357,22 +1357,21 @@ class PowerTransformer(Transformer):
         idstrans: np.ndarray
             Transformed array of ids
         """
-        if not (len(y.shape) == 1 or len(y.shape) == 2 and y.shape[1] == 1):
-            raise ValueError("This transform is not defined for multitask y")
-        # THis reshape is safe because of guard above.
-        y = np.reshape(y, (len(y), 1))
+        X_t = X
+        y_t = y
         w_t = w
         n_powers = len(self.powers)
         if self.transform_X:
             X_t = np.power(X, self.powers[0])
             for i in range(1, n_powers):
                 X_t = np.hstack((X_t, np.power(X, self.powers[i])))
-            y_t = y
         if self.transform_y:
-            y_t = np.power(y, self.powers[0])
+            if not (len(y.shape) == 1 or (len(y.shape) == 2 and y.shape[1] == 1)):
+                raise ValueError("This transform is not defined for multitask y")
+            y_reshaped = np.reshape(y, (len(y), 1))
+            y_t = np.power(y_reshaped, self.powers[0])
             for i in range(1, n_powers):
-                y_t = np.hstack((y_t, np.power(y, self.powers[i])))
-            X_t = X
+                y_t = np.hstack((y_t, np.power(y_reshaped, self.powers[i])))
         return (X_t, y_t, w_t, ids)
 
     def untransform(self, z: np.ndarray) -> np.ndarray:
@@ -1389,6 +1388,8 @@ class PowerTransformer(Transformer):
             Array with the power transformation undone.
         """
         n_powers = len(self.powers)
+        if len(z.shape) == 1:
+            z = np.reshape(z, (len(z), 1))
         orig_len = (z.shape[1]) // n_powers
         z = z[:, :orig_len]
         z = np.power(z, 1 / self.powers[0])

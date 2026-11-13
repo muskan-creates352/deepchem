@@ -80,3 +80,66 @@ def test_power_y_transformer():
 
     # Check that untransform does the right thing.
     np.testing.assert_allclose(power_transformer.untransform(y_t).flatten(), y)
+
+
+def test_power_X_multitask_y():
+    """Test transform_X on a dataset with multitask y."""
+    N = 10
+    n_feat = 3
+    powers = [1, 2]
+    X = np.random.rand(N, n_feat)
+    y = np.random.rand(N, 4)  # Multitask y
+    dataset = dc.data.NumpyDataset(X, y)
+    transformer = dc.trans.PowerTransformer(transform_X=True, powers=powers)
+    transformed = transformer.transform(dataset)
+
+    # X should be expanded to n_feat * len(powers)
+    assert transformed.X.shape == (N, n_feat * len(powers))
+    np.testing.assert_allclose(transformed.X[:, :n_feat], X)
+    np.testing.assert_allclose(transformed.X[:, n_feat:], np.power(X, 2))
+    # y shape and values should remain unchanged
+    np.testing.assert_allclose(transformed.y, y)
+
+
+def test_power_both_X_and_y():
+    """Test transforming both X and y simultaneously."""
+    N = 10
+    n_feat = 2
+    powers = [1, 3]
+    X = np.random.rand(N, n_feat)
+    y = np.random.rand(N, 1)
+    dataset = dc.data.NumpyDataset(X, y)
+    transformer = dc.trans.PowerTransformer(
+        transform_X=True, transform_y=True, powers=powers)
+    transformed = transformer.transform(dataset)
+
+    # Both X and y should be expanded
+    assert transformed.X.shape == (N, n_feat * len(powers))
+    assert transformed.y.shape == (N, len(powers))
+    np.testing.assert_allclose(transformed.X[:, :n_feat], X)
+    np.testing.assert_allclose(transformed.X[:, n_feat:], np.power(X, 3))
+    np.testing.assert_allclose(transformed.y[:, :1], y)
+    np.testing.assert_allclose(transformed.y[:, 1:], np.power(y, 3))
+
+
+def test_power_y_multitask_raises_error():
+    """Test that transform_y raises ValueError for multitask y."""
+    import pytest
+    N = 10
+    n_feat = 2
+    X = np.random.rand(N, n_feat)
+    y = np.random.rand(N, 3)
+    dataset = dc.data.NumpyDataset(X, y)
+    transformer = dc.trans.PowerTransformer(transform_y=True)
+    with pytest.raises(ValueError, match="not defined for multitask y"):
+        transformer.transform(dataset)
+
+
+def test_power_untransform_1D():
+    """Test untransform when input array is 1-dimensional."""
+    powers = [1]
+    transformer = dc.trans.PowerTransformer(transform_y=True, powers=powers)
+    y = np.random.rand(10)
+    untransformed = transformer.untransform(y)
+    np.testing.assert_allclose(untransformed.flatten(), y)
+
