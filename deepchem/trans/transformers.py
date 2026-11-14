@@ -943,7 +943,10 @@ class BalancingTransformer(Transformer):
         self.classes = sorted(np.unique(y))
         weights = []
         for ind, task in enumerate(dataset.get_task_names()):
-            task_w = w[:, ind]
+            if w.shape[1] == 1:
+                task_w = w[:, 0]
+            else:
+                task_w = w[:, ind]
             task_y = y[:, ind]
             # Remove labels with zero weights
             task_y = task_y[task_w != 0]
@@ -993,8 +996,6 @@ class BalancingTransformer(Transformer):
             Transformed array of ids
         """
         w_balanced = np.zeros_like(w)
-        if len(y.shape) == 1 and len(w.shape) == 2 and w.shape[1] == 1:
-            y = np.expand_dims(y, 1)
         if len(y.shape) == 1:
             n_tasks = 1
         elif len(y.shape) == 2:
@@ -1003,18 +1004,21 @@ class BalancingTransformer(Transformer):
             raise ValueError("y must be of shape (N,) or (N, n_tasks)")
         for ind in range(n_tasks):
             if n_tasks == 1:
-                task_y = y
-                task_w = w
+                task_y = y[:, 0] if y.ndim > 1 else y
+                task_w = w[:, 0] if w.ndim > 1 else w
             else:
                 task_y = y[:, ind]
-                task_w = w[:, ind]
+                task_w = w[:, 0] if (w.ndim == 2 and
+                                     w.shape[1] == 1) or w.ndim == 1 else w[:,
+                                                                            ind]
             for i, c in enumerate(self.classes):
                 class_indices = np.logical_and(task_y == c, task_w != 0)
                 # Set to the class weight computed previously
-                if n_tasks == 1:
+                if w_balanced.ndim == 1:
                     w_balanced[class_indices] = self.weights[ind][i]
                 else:
-                    w_balanced[class_indices, ind] = self.weights[ind][i]
+                    target_ind = 0 if w_balanced.shape[1] == 1 else ind
+                    w_balanced[class_indices, target_ind] = self.weights[ind][i]
         return (X, y, w_balanced, ids)
 
 

@@ -188,3 +188,39 @@ def test_array_shapes():
     sum0 = np.sum(wt[np.where(y == 0)])
     sum1 = np.sum(wt[np.where(y == 1)])
     assert np.isclose(sum0, sum1)
+
+
+def test_balancing_transformer_2d_y_1d_w():
+    """Test BalancingTransformer with 2D y (N, 1) and 1D w (N,)."""
+    n_samples = 20
+    n_features = 3
+    n_classes = 2
+    np.random.seed(123)
+    X = np.random.rand(n_samples, n_features)
+    y = np.random.randint(n_classes, size=(n_samples, 1))
+    w = np.ones(n_samples)
+    dataset = dc.data.NumpyDataset(X, y, w)
+
+    transformer = dc.trans.BalancingTransformer(dataset=dataset)
+    transformed_dataset = transformer.transform(dataset)
+
+    assert transformed_dataset.y.shape == (n_samples, 1)
+    assert transformed_dataset.w.shape == (n_samples,)
+    w_t = transformed_dataset.w
+    y_t = transformed_dataset.y.flatten()
+    assert np.isclose(np.sum(w_t[y_t == 0]), np.sum(w_t[y_t == 1]))
+
+
+def test_array_shapes_2d_y_1d_w():
+    """Test BalancingTransformer.transform_array when y is (N, 1) and w is (N,)."""
+    n_samples = 20
+    X = np.random.rand(n_samples, 5)
+    y = np.random.randint(2, size=(n_samples, 1))
+    w = np.ones(n_samples)
+    dataset = dc.data.NumpyDataset(X, y, w)
+    transformer = dc.trans.BalancingTransformer(dataset)
+    Xt, yt, wt, ids = transformer.transform_array(X, y, w, dataset.ids)
+    sum0 = np.sum(wt[np.where(y.flatten() == 0)])
+    sum1 = np.sum(wt[np.where(y.flatten() == 1)])
+    assert wt.shape == (n_samples,)
+    assert np.isclose(sum0, sum1)
